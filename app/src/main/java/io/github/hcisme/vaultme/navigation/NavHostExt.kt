@@ -10,3 +10,7 @@ fun NavController.navigateToEditCredential(id: Long? = null) {
     }
     navigate(route)
 }
+
+fun NavController.navigateToSettings() {
+    navigate(NavigationName.SETTINGS_PAGE)
+}

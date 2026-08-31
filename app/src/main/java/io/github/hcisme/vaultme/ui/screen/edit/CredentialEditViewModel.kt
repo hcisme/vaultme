@@ -5,19 +5,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import io.github.hcisme.vaultme.utils.AesUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.time.Duration.Companion.milliseconds
 
-class CredentialEditViewModel(
-    private val application: Application
-) : AndroidViewModel(application) {
+class CredentialEditViewModel(application: Application) : AndroidViewModel(application) {
     var form by mutableStateOf(CredentialEditState())
         private set
 

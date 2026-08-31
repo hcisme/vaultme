@@ -76,8 +76,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
         ) {
-            Spacer(modifier = Modifier.height(20.dp))
-
             HomeSearchBar()
 
             Spacer(modifier = Modifier.height(20.dp))

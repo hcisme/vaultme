@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import io.github.hcisme.vaultme.ui.screen.edit.CredentialEditScreen
 import io.github.hcisme.vaultme.ui.screen.home.HomeScreen
+import io.github.hcisme.vaultme.ui.screen.settings.SettingsScreen
 import io.github.hcisme.vaultme.utils.LocalNavController
 
 @Composable
@@ -87,6 +88,14 @@ fun NavigationApp(modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
             CredentialEditScreen(id = id)
+        }
+
+        composable(
+            route = NavigationName.SETTINGS_PAGE,
+            enterTransition = { slideInFromRight },
+            popExitTransition = { slideOutToRight }
+        ) {
+            SettingsScreen()
         }
     }
 }

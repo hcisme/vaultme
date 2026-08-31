@@ -21,12 +21,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.hcisme.vaultme.R
+import io.github.hcisme.vaultme.navigation.navigateToSettings
+import io.github.hcisme.vaultme.utils.LocalNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeHeader(
     modifier: Modifier = Modifier
 ) {
+    val navController = LocalNavController.current
+
     TopAppBar(
         modifier = modifier,
         title = {
@@ -58,6 +62,15 @@ fun HomeHeader(
             }
         },
         actions = {
+            IconButton(onClick = { navController.navigateToSettings() }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_settings),
+                    contentDescription = "设置",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
             IconButton(onClick = { /* TODO: viewModel.refresh() */ }) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_refresh),
