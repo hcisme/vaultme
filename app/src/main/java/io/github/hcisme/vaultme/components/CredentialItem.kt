@@ -26,15 +26,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.hcisme.vaultme.R
-import io.github.hcisme.vaultme.model.Credential
+
 
 @Composable
 fun CredentialItem(
-    credential: Credential,
+    platform: String,
+    username: String,
+    iconColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(20.dp)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -59,7 +62,7 @@ fun CredentialItem(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(credential.iconColor)
+                            .background(iconColor)
                     )
                 }
             }
@@ -68,13 +71,13 @@ fun CredentialItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = credential.platform,
+                    text = platform,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = credential.username,
+                    text = username,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )

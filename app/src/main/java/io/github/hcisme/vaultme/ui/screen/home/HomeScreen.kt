@@ -1,37 +1,16 @@
-package io.github.hcisme.vaultme.ui.screen
+package io.github.hcisme.vaultme.ui.screen.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,42 +19,48 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 import io.github.hcisme.vaultme.components.CredentialItem
-import io.github.hcisme.vaultme.model.Credential
+import io.github.hcisme.vaultme.navigation.navigateToAddCredential
+import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import io.github.hcisme.vaultme.ui.theme.VaultMeTheme
+import io.github.hcisme.vaultme.utils.LocalNavController
 
 @Composable
-fun Home(modifier: Modifier = Modifier) {
-    val credentials = remember {
-        listOf(
-            Credential("Google", "alex.worker@gmail.com", iconColor = Color(0xFF4285F4)),
-            Credential("GitHub", "dev_pro_2024", iconColor = Color.Black),
-            Credential("Amazon", "shopping_cart_master", iconColor = Color(0xFFFF9900)),
-            Credential("Netflix", "family_streamer", iconColor = Color(0xFFE50914)),
-            Credential("Twitter", "@tech_insider", iconColor = Color.Black),
-        )
-    }
+fun HomeScreen(
+    modifier: Modifier = Modifier
+) {
+    val navController = LocalNavController.current
+    val focusManager = LocalFocusManager.current
+    val viewModel: HomeViewModel = viewModel()
 
-    var searchQuery by remember { mutableStateOf("") }
+    val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    SafePassHomeScreen(
+    HomeContent(
         credentials = credentials,
-        searchQuery = searchQuery,
-        onSearchQueryChange = { searchQuery = it },
+        searchQuery = viewModel.searchQuery,
+        onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+        onAddClick = { navController.navigateToAddCredential() },
+        onItemClick = { /* TODO: 处理点击事件 */ },
+        onRefreshClick = { /* TODO */ },
+        onClearFocus = { focusManager.clearFocus() },
         modifier = modifier
     )
 }
 
 @Composable
-fun SafePassHomeScreen(
-    credentials: List<Credential>,
+fun HomeContent(
+    credentials: List<CredentialEntity>,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    onAddClick: () -> Unit,
+    onItemClick: (CredentialEntity) -> Unit,
+    onRefreshClick: () -> Unit,
+    onClearFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val focusManager = LocalFocusManager.current
-
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -83,11 +68,11 @@ fun SafePassHomeScreen(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
-                focusManager.clearFocus()
+                onClearFocus()
             },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* TODO */ },
+                onClick = onAddClick,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(18.dp),
@@ -112,7 +97,7 @@ fun SafePassHomeScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            Header()
+            Header(onRefreshClick = onRefreshClick)
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -133,8 +118,10 @@ fun SafePassHomeScreen(
             ) {
                 items(credentials) { credential ->
                     CredentialItem(
-                        credential = credential,
-                        onClick = { /* TODO: 处理点击事件 */ }
+                        platform = credential.platform,
+                        username = credential.account,
+                        iconColor = Color.Gray,
+                        onClick = { onItemClick(credential) }
                     )
                 }
             }
@@ -143,7 +130,10 @@ fun SafePassHomeScreen(
 }
 
 @Composable
-fun Header(modifier: Modifier = Modifier) {
+fun Header(
+    onRefreshClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -172,7 +162,7 @@ fun Header(modifier: Modifier = Modifier) {
                 color = Color.Black
             )
         }
-        IconButton(onClick = { /* TODO */ }) {
+        IconButton(onClick = onRefreshClick) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_refresh),
                 contentDescription = null,
@@ -250,8 +240,19 @@ fun SectionHeader(count: Int, modifier: Modifier = Modifier) {
 
 @Preview(showBackground = true)
 @Composable
-fun HomePreview() {
+fun HomeScreenPreview() {
     VaultMeTheme {
-        Home()
+        HomeContent(
+            credentials = listOf(
+                CredentialEntity(1, "Google", "alex.worker@gmail.com", "****"),
+                CredentialEntity(2, "GitHub", "dev_pro_2024", "****")
+            ),
+            searchQuery = "",
+            onSearchQueryChange = {},
+            onAddClick = {},
+            onItemClick = {},
+            onRefreshClick = {},
+            onClearFocus = {}
+        )
     }
 }
