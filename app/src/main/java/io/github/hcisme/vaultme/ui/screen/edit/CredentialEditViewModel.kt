@@ -1,4 +1,4 @@
-package io.github.hcisme.vaultme.ui.screen.addcredential
+package io.github.hcisme.vaultme.ui.screen.edit
 
 import android.app.Application
 import androidx.compose.runtime.getValue
@@ -9,13 +9,45 @@ import androidx.lifecycle.viewModelScope
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import io.github.hcisme.vaultme.utils.AesUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
-class AddCredentialViewModel(private val application: Application) : AndroidViewModel(application) {
-    var form by mutableStateOf(AddCredentialState())
+class CredentialEditViewModel(
+    private val application: Application
+) : AndroidViewModel(application) {
+    var form by mutableStateOf(CredentialEditState())
         private set
+
+    fun loadCredential(id: Long?) {
+        if (id == null) {
+            // 重置为添加模式
+            form = CredentialEditState()
+            return
+        }
+
+        viewModelScope.launch {
+            val entity = application.credentialDao.getCredentialById(id)
+            if (entity != null) {
+                // 将解密操作也放到计算线程，因为这也是耗时操作
+                val decryptedPassword = withContext(Dispatchers.Default) {
+                    try {
+                        AesUtils.decrypt(entity.password)
+                    } catch (_: Exception) {
+                        ""
+                    }
+                }
+                form = form.copy(
+                    id = entity.id,
+                    platformName = entity.platform,
+                    account = entity.account,
+                    password = decryptedPassword
+                )
+            }
+        }
+    }
 
     fun onFormChange(
         platformName: String = form.platformName,
@@ -38,9 +70,11 @@ class AddCredentialViewModel(private val application: Application) : AndroidView
 
         viewModelScope.launch {
             form = form.copy(isLoading = true)
-            delay(800.milliseconds)
-            val encryptedPassword = AesUtils.encrypt(form.password)
+            val encryptedPassword = withContext(Dispatchers.Default) {
+                AesUtils.encrypt(form.password)
+            }
             val entity = CredentialEntity(
+                id = form.id ?: 0,
                 platform = form.platformName,
                 account = form.account,
                 password = encryptedPassword
@@ -52,7 +86,8 @@ class AddCredentialViewModel(private val application: Application) : AndroidView
     }
 }
 
-data class AddCredentialState(
+data class CredentialEditState(
+    val id: Long? = null,
     val platformName: String = "",
     val account: String = "",
     val password: String = "",
@@ -61,4 +96,7 @@ data class AddCredentialState(
 ) {
     val canSave: Boolean
         get() = platformName.isNotBlank() && account.isNotBlank() && password.isNotBlank()
+
+    val isEditing: Boolean
+        get() = id != null
 }

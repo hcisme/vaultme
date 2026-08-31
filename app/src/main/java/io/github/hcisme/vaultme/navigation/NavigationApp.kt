@@ -12,9 +12,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import io.github.hcisme.vaultme.ui.screen.addcredential.AddCredentialScreen
+import androidx.navigation.navArgument
+import io.github.hcisme.vaultme.ui.screen.edit.CredentialEditScreen
 import io.github.hcisme.vaultme.ui.screen.home.HomeScreen
 import io.github.hcisme.vaultme.utils.LocalNavController
 
@@ -72,11 +74,19 @@ fun NavigationApp(modifier: Modifier = Modifier) {
         }
 
         composable(
-            route = NavigationName.ADD_CREDENTIAL_PAGE,
+            route = "${NavigationName.EDIT_CREDENTIAL_PAGE}?id={id}",
+            arguments = listOf(
+                navArgument("id") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
             enterTransition = { slideInFromRight },
             popExitTransition = { slideOutToRight }
-        ) {
-            AddCredentialScreen()
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id")?.toLongOrNull()
+            CredentialEditScreen(id = id)
         }
     }
 }

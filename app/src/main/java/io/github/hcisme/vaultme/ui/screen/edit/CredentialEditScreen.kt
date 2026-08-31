@@ -1,9 +1,29 @@
-package io.github.hcisme.vaultme.ui.screen.addcredential
+package io.github.hcisme.vaultme.ui.screen.edit
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -13,30 +33,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
-import io.github.hcisme.vaultme.ui.theme.VaultMeTheme
 import io.github.hcisme.vaultme.utils.LocalNavController
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddCredentialScreen(
+fun CredentialEditScreen(
+    id: Long?,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel: AddCredentialViewModel = viewModel()
     val navController = LocalNavController.current
+    val viewModel = viewModel<CredentialEditViewModel>()
 
-    AddCredentialContent(
+    LaunchedEffect(id) {
+        viewModel.loadCredential(id)
+    }
+
+    CredentialEditContent(
         uiState = viewModel.form,
         onFormChange = { viewModel.onFormChange(it.platformName, it.account, it.password) },
         onTogglePasswordVisibility = { viewModel.togglePasswordVisibility() },
-        onSave = {
-            viewModel.save {
-                navController.popBackStack()
-            }
-        },
+        onSave = { viewModel.save { navController.popBackStack() } },
         onBack = { navController.popBackStack() },
         modifier = modifier
     )
@@ -44,9 +62,9 @@ fun AddCredentialScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddCredentialContent(
-    uiState: AddCredentialState,
-    onFormChange: (AddCredentialState) -> Unit,
+fun CredentialEditContent(
+    uiState: CredentialEditState,
+    onFormChange: (CredentialEditState) -> Unit,
     onTogglePasswordVisibility: () -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
@@ -56,7 +74,12 @@ fun AddCredentialContent(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("添加凭据", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = if (uiState.isEditing) "编辑凭据" else "添加凭据",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -166,24 +189,5 @@ fun AddCredentialContent(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AddCredentialScreenPreview() {
-    VaultMeTheme {
-        AddCredentialContent(
-            uiState = AddCredentialState().copy(
-                platformName = "GitHub",
-                account = "test@example.com",
-                password = "password",
-                isLoading = true
-            ),
-            onFormChange = {},
-            onTogglePasswordVisibility = {},
-            onSave = {},
-            onBack = {}
-        )
     }
 }

@@ -19,6 +19,9 @@ interface CredentialDao {
     @Delete
     suspend fun deleteCredential(credential: CredentialEntity)
 
+    @Query("SELECT * FROM credentials WHERE id = :id")
+    suspend fun getCredentialById(id: Long): CredentialEntity?
+
     @Query("SELECT * FROM credentials WHERE platform LIKE '%' || :query || '%' OR account LIKE '%' || :query || '%'")
     fun searchCredentials(query: String): Flow<List<CredentialEntity>>
 }
