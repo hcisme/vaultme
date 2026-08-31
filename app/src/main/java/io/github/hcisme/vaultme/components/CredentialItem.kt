@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,7 +35,8 @@ fun CredentialItem(
     username: String,
     iconColor: Color,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(20.dp)
 
@@ -88,6 +90,16 @@ fun CredentialItem(
                     letterSpacing = 2.sp
                 )
             }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_delete),
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
             Icon(
                 painter = painterResource(id = R.drawable.ic_chevron_right),
                 contentDescription = null,

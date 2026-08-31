@@ -36,5 +36,3 @@ abstract class RoomImpl : RoomDatabase() {
         }
     }
 }
-
-

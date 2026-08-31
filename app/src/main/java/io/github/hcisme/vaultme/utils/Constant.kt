@@ -12,4 +12,7 @@ object Constant {
 
     // 坚果云
     const val DEFAULT_WEBDAV_URL = "https://dav.jianguoyun.com/dav/"
+
+    // 坚果云同步的远程目录（相对 WebDAV 根）
+    const val SYNC_REMOTE_PATH = "$ROOM_DATABASE_NAME/credentials"
 }

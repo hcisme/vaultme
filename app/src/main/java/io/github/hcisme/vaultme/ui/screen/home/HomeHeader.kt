@@ -14,12 +14,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 import io.github.hcisme.vaultme.navigation.navigateToSettings
 import io.github.hcisme.vaultme.utils.LocalNavController
@@ -30,6 +38,19 @@ fun HomeHeader(
     modifier: Modifier = Modifier
 ) {
     val navController = LocalNavController.current
+    val viewModel = viewModel<HomeViewModel>()
+    var rotation by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(viewModel.isRefreshing) {
+        if (viewModel.isRefreshing) {
+            while (true) {
+                withFrameNanos { }
+                rotation = (rotation + 6f) % 360f
+            }
+        } else {
+            rotation = 0f
+        }
+    }
 
     TopAppBar(
         modifier = modifier,
@@ -71,12 +92,18 @@ fun HomeHeader(
                 )
             }
 
-            IconButton(onClick = { /* TODO: viewModel.refresh() */ }) {
+            IconButton(onClick = viewModel::refresh, enabled = !viewModel.isRefreshing) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_refresh),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(28.dp)
+                    contentDescription = "刷新",
+                    tint = if (viewModel.isRefreshing) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier
+                        .size(28.dp)
+                        .rotate(if (viewModel.isRefreshing) rotation else 0f)
                 )
             }
         },

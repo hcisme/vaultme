@@ -1,4 +1,4 @@
-package io.github.hcisme.vaultme.ui.screen.edit
+﻿package io.github.hcisme.vaultme.ui.screen.edit
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 import io.github.hcisme.vaultme.utils.LocalNavController
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CredentialEditScreen(
     id: Long?,
@@ -45,43 +46,24 @@ fun CredentialEditScreen(
 ) {
     val navController = LocalNavController.current
     val viewModel = viewModel<CredentialEditViewModel>()
+    val form = viewModel.form
 
     LaunchedEffect(id) {
         viewModel.loadCredential(id)
     }
 
-    CredentialEditContent(
-        uiState = viewModel.form,
-        onFormChange = { viewModel.onFormChange(it.platformName, it.account, it.password) },
-        onTogglePasswordVisibility = { viewModel.togglePasswordVisibility() },
-        onSave = { viewModel.save { navController.popBackStack() } },
-        onBack = { navController.popBackStack() },
-        modifier = modifier
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CredentialEditContent(
-    uiState: CredentialEditState,
-    onFormChange: (CredentialEditState) -> Unit,
-    onTogglePasswordVisibility: () -> Unit,
-    onSave: () -> Unit,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
-) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = if (uiState.isEditing) "编辑凭据" else "添加凭据",
+                        text = if (form.isEditing) "编辑凭据" else "添加凭据",
                         fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_chevron_right),
                             contentDescription = "返回",
@@ -107,8 +89,8 @@ fun CredentialEditContent(
 
                 // 平台名称
                 TextField(
-                    value = uiState.platformName,
-                    onValueChange = { onFormChange(uiState.copy(platformName = it)) },
+                    value = form.platformName,
+                    onValueChange = { viewModel.onFormChange(platformName = it) },
                     label = { Text("平台名称") },
                     placeholder = { Text("例如：GitHub、微信") },
                     modifier = Modifier.fillMaxWidth(),
@@ -122,8 +104,8 @@ fun CredentialEditContent(
 
                 // 账号
                 TextField(
-                    value = uiState.account,
-                    onValueChange = { onFormChange(uiState.copy(account = it)) },
+                    value = form.account,
+                    onValueChange = { viewModel.onFormChange(account = it) },
                     label = { Text("账号") },
                     placeholder = { Text("邮箱或手机号") },
                     modifier = Modifier.fillMaxWidth(),
@@ -138,18 +120,18 @@ fun CredentialEditContent(
 
                 // 密码
                 TextField(
-                    value = uiState.password,
-                    onValueChange = { onFormChange(uiState.copy(password = it)) },
+                    value = form.password,
+                    onValueChange = { viewModel.onFormChange(password = it) },
                     label = { Text("密码") },
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    visualTransformation = if (form.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         val iconId =
-                            if (uiState.isPasswordVisible) R.drawable.ic_visibility_off else R.drawable.ic_visibility
-                        IconButton(onClick = onTogglePasswordVisibility) {
+                            if (form.isPasswordVisible) R.drawable.ic_visibility_off else R.drawable.ic_visibility
+                        IconButton(onClick = viewModel::togglePasswordVisibility) {
                             Icon(
                                 painter = painterResource(id = iconId),
-                                contentDescription = if (uiState.isPasswordVisible) "隐藏密码" else "显示密码"
+                                contentDescription = if (form.isPasswordVisible) "隐藏密码" else "显示密码"
                             )
                         }
                     },
@@ -165,8 +147,8 @@ fun CredentialEditContent(
 
             // 保存按钮
             Button(
-                onClick = onSave,
-                enabled = uiState.canSave && !uiState.isLoading,
+                onClick = { viewModel.save { navController.popBackStack() } },
+                enabled = form.canSave && !form.isLoading,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -179,7 +161,7 @@ fun CredentialEditContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("保存", style = MaterialTheme.typography.titleMedium)
-                    if (uiState.isLoading) {
+                    if (form.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             color = MaterialTheme.colorScheme.onPrimary,

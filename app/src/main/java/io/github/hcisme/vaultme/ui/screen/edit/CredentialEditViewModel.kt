@@ -7,16 +7,23 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
+import io.github.hcisme.vaultme.datastore.SettingsDataStore
+import io.github.hcisme.vaultme.repository.WebDavRepository
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import io.github.hcisme.vaultme.utils.AesUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 class CredentialEditViewModel(application: Application) : AndroidViewModel(application) {
     var form by mutableStateOf(CredentialEditState())
         private set
+
+    private val webDavRepository = WebDavRepository(
+        settingsStore = SettingsDataStore(application)
+    )
 
     fun loadCredential(id: Long?) {
         if (id == null) {
@@ -38,6 +45,7 @@ class CredentialEditViewModel(application: Application) : AndroidViewModel(appli
                 }
                 form = form.copy(
                     id = entity.id,
+                    uuid = entity.uuid,
                     platformName = entity.platform,
                     account = entity.account,
                     password = decryptedPassword
@@ -67,24 +75,31 @@ class CredentialEditViewModel(application: Application) : AndroidViewModel(appli
 
         viewModelScope.launch {
             form = form.copy(isLoading = true)
-            val encryptedPassword = withContext(Dispatchers.Default) {
-                AesUtils.encrypt(form.password)
+            try {
+                val encryptedPassword = withContext(Dispatchers.Default) {
+                    AesUtils.encrypt(form.password)
+                }
+                val entity = CredentialEntity(
+                    id = form.id ?: 0,
+                    uuid = form.uuid.ifBlank { UUID.randomUUID().toString() },
+                    platform = form.platformName,
+                    account = form.account,
+                    password = encryptedPassword,
+                    updatedAt = System.currentTimeMillis()
+                )
+                application.credentialDao.insertCredential(entity)
+                runCatching { webDavRepository.uploadCredential(entity) }
+                onSuccess()
+            } finally {
+                form = form.copy(isLoading = false)
             }
-            val entity = CredentialEntity(
-                id = form.id ?: 0,
-                platform = form.platformName,
-                account = form.account,
-                password = encryptedPassword
-            )
-            application.credentialDao.insertCredential(entity)
-            form = form.copy(isLoading = false)
-            onSuccess()
         }
     }
 }
 
 data class CredentialEditState(
     val id: Long? = null,
+    val uuid: String = "",
     val platformName: String = "",
     val account: String = "",
     val password: String = "",

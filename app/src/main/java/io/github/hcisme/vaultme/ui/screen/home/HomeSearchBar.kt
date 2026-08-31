@@ -1,18 +1,24 @@
-package io.github.hcisme.vaultme.ui.screen.home
+﻿package io.github.hcisme.vaultme.ui.screen.home
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
@@ -22,9 +28,11 @@ fun HomeSearchBar(
     modifier: Modifier = Modifier
 ) {
     val viewModel = viewModel<HomeViewModel>()
+    val focusManager = LocalFocusManager.current
+    val query by viewModel.searchQuery.collectAsState()
 
     TextField(
-        value = viewModel.searchQuery,
+        value = query,
         onValueChange = { viewModel.updateSearchQuery(it) },
         modifier = modifier
             .fillMaxWidth()
@@ -43,6 +51,10 @@ fun HomeSearchBar(
                 modifier = Modifier.size(24.dp)
             )
         },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(
+            onSearch = { focusManager.clearFocus() }
+        ),
         shape = RoundedCornerShape(30.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,

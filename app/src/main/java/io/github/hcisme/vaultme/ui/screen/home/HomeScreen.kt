@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -40,6 +41,10 @@ fun HomeScreen(
     val focusManager = LocalFocusManager.current
     val viewModel = viewModel<HomeViewModel>()
     val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     Scaffold(
         modifier = modifier
@@ -96,6 +101,9 @@ fun HomeScreen(
                         iconColor = ColorUtils.getPlatformColor(credential.platform),
                         onClick = {
                             navController.navigateToEditCredential(id = credential.id)
+                        },
+                        onDelete = {
+                            viewModel.deleteCredential(credential)
                         }
                     )
                 }
