@@ -69,14 +69,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             isRefreshing = true
             try {
                 val remote = webDavRepository.downloadCredentials()
+                if (remote.isEmpty()) return@launch
+
+                val dao = application.credentialDao
+                val localByUuid = dao.getAllCredentialsOnce().associateBy { it.uuid }
+
+                val toInsert = mutableListOf<CredentialEntity>()
+                val toUpdate = mutableListOf<CredentialEntity>()
                 for (entity in remote) {
                     if (entity.uuid.isBlank()) continue
-                    val local = application.credentialDao.getCredentialByUuid(entity.uuid)
+                    val local = localByUuid[entity.uuid]
                     if (local == null) {
-                        application.credentialDao.insertCredential(entity)
+                        toInsert.add(entity)
                     } else if (entity.updatedAt > local.updatedAt) {
-                        // 保留本地 id，用远端内容覆盖
-                        application.credentialDao.updateCredential(
+                        toUpdate.add(
                             local.copy(
                                 platform = entity.platform,
                                 account = entity.account,
@@ -85,6 +91,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             )
                         )
                     }
+                }
+
+                application.appDatabase.withTransaction {
+                    if (toInsert.isNotEmpty()) dao.insertCredentials(toInsert)
+                    if (toUpdate.isNotEmpty()) dao.updateCredentials(toUpdate)
                 }
             } finally {
                 isRefreshing = false

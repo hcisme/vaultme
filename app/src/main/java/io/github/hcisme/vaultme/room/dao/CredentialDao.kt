@@ -14,20 +14,23 @@ interface CredentialDao {
     @Query("SELECT * FROM credentials ORDER BY id DESC")
     fun getAllCredentials(): Flow<List<CredentialEntity>>
 
+    @Query("SELECT * FROM credentials")
+    suspend fun getAllCredentialsOnce(): List<CredentialEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCredential(credential: CredentialEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCredentials(credentials: List<CredentialEntity>)
+
     @Update
-    suspend fun updateCredential(credential: CredentialEntity)
+    suspend fun updateCredentials(credentials: List<CredentialEntity>)
 
     @Delete
     suspend fun deleteCredential(credential: CredentialEntity)
 
     @Query("SELECT * FROM credentials WHERE id = :id")
     suspend fun getCredentialById(id: Long): CredentialEntity?
-
-    @Query("SELECT * FROM credentials WHERE uuid = :uuid")
-    suspend fun getCredentialByUuid(uuid: String): CredentialEntity?
 
     @Query("SELECT * FROM credentials WHERE platform LIKE '%' || :query || '%' OR account LIKE '%' || :query || '%'")
     fun searchCredentials(query: String): Flow<List<CredentialEntity>>
