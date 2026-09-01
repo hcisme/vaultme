@@ -35,8 +35,9 @@ android {
     buildTypes {
         release {
             optimization {
-                enable = false
+                enable = true
             }
+            isShrinkResources = true
 
             // 只有在签名配置有效时才应用
             if (signingConfigs.getByName("release").storeFile?.exists() == true) {
