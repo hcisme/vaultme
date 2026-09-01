@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.hcisme.vaultme.R
 
-
 @Composable
 fun CredentialItem(
     platform: String,

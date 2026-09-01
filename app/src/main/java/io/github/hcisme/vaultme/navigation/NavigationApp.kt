@@ -25,28 +25,28 @@ import io.github.hcisme.vaultme.utils.LocalNavController
 fun NavigationApp(modifier: Modifier = Modifier) {
     val navController = LocalNavController.current
 
-    // 新页面从右侧滑入（前进动画）
+
     val slideInFromRight = remember {
         slideInHorizontally(
             animationSpec = tween(durationMillis = 320, easing = LinearOutSlowInEasing),
             initialOffsetX = { it }
         )
     }
-    // 页面向右侧滑出（前进退出动画）
+
     val slideOutToRight = remember {
         slideOutHorizontally(
             animationSpec = tween(durationMillis = 320, easing = LinearOutSlowInEasing),
             targetOffsetX = { it }
         )
     }
-    // 返回时页面从左侧滑入（后退进入动画）
+
     val slideInFromLeft = remember {
         slideInHorizontally(
             animationSpec = tween(durationMillis = 320, easing = LinearOutSlowInEasing),
             initialOffsetX = { -it }
         )
     }
-    // 返回时页面向左侧滑出（后退退出动画）
+
     val slideOutToLeft = remember {
         slideOutHorizontally(
             animationSpec = tween(durationMillis = 320, easing = LinearOutSlowInEasing),

@@ -13,11 +13,11 @@ import androidx.room.PrimaryKey
 data class CredentialEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    // 云端身份：全局唯一
+
     val uuid: String,
     val platform: String,
     val account: String,
     val password: String,
-    // 最后修改时间（epoch 毫秒），用于同步冲突解决
+
     val updatedAt: Long = 0
 )

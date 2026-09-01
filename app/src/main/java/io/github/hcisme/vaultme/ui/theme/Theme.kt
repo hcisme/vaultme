@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 @Composable
 fun VaultMeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {

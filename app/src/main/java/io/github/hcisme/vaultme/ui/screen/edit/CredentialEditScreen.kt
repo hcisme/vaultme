@@ -87,7 +87,6 @@ fun CredentialEditScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 平台名称
                 TextField(
                     value = form.platformName,
                     onValueChange = { viewModel.onFormChange(platformName = it) },
@@ -102,7 +101,6 @@ fun CredentialEditScreen(
                     )
                 )
 
-                // 账号
                 TextField(
                     value = form.account,
                     onValueChange = { viewModel.onFormChange(account = it) },
@@ -118,7 +116,6 @@ fun CredentialEditScreen(
                     )
                 )
 
-                // 密码
                 TextField(
                     value = form.password,
                     onValueChange = { viewModel.onFormChange(password = it) },
@@ -145,7 +142,6 @@ fun CredentialEditScreen(
                 )
             }
 
-            // 保存按钮
             Button(
                 onClick = { viewModel.save { navController.popBackStack() } },
                 enabled = form.canSave && !form.isLoading,
