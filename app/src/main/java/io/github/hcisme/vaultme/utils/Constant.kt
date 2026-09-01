@@ -12,4 +12,8 @@ object Constant {
     const val DEFAULT_WEBDAV_URL = "https://dav.jianguoyun.com/dav/"
 
     const val SYNC_REMOTE_PATH = "$ROOM_DATABASE_NAME/credentials"
+
+    const val GITHUB_API_URL = "https://api.github.com/repos/hcisme/vaultme/releases/latest"
+
+    const val GITHUB_RELEASE_APK_NAME = "app-release.apk"
 }

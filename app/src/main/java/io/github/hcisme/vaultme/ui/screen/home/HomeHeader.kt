@@ -82,6 +82,8 @@ fun HomeHeader(
             }
         },
         actions = {
+            UpdateButton()
+
             IconButton(onClick = { navController.navigateToSettings() }) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_settings),

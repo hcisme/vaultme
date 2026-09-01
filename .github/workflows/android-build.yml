@@ -57,12 +57,6 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
-      # 用 git 标签作为版本号，重命名 APK：VaultMe-v1.0-release.apk
-      - name: Rename APK with version
-        run: |
-          APK=$(ls app/build/outputs/apk/release/*.apk)
-          mv "$APK" "app/build/outputs/apk/release/VaultMe-${GITHUB_REF_NAME}-release.apk"
-
       # 推送 v* 标签时，把 APK 挂到对应的 GitHub Release 页面
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
