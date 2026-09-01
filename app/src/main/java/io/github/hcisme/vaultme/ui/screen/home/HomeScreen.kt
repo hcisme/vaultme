@@ -43,7 +43,7 @@ fun HomeScreen(
     val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     LaunchedEffect(Unit) {
-        viewModel.refresh()
+        viewModel.loadInitial()
     }
 
     Scaffold(
@@ -87,7 +87,6 @@ fun HomeScreen(
 
             HomeCredentialSectionHeader()
 
-
             Spacer(modifier = Modifier.height(12.dp))
 
             LazyColumn(
@@ -111,4 +110,3 @@ fun HomeScreen(
         }
     }
 }
-

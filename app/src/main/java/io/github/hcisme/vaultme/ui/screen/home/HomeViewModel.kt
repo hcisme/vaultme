@@ -38,23 +38,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * 提交搜索（键盘搜索键 / 清空输入框时触发）
-     */
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
     }
 
-    /**
-     * 手动刷新。
-     */
+    fun loadInitial() {
+        if (hasLoadedOnce) return
+        hasLoadedOnce = true
+        pull()
+    }
+
     fun refresh() {
         pull()
     }
 
-    /**
-     * 删除凭据：先删本地，再删云端（失败不阻塞）。
-     */
     fun deleteCredential(entity: CredentialEntity) {
         viewModelScope.launch {
             application.credentialDao.deleteCredential(entity)
