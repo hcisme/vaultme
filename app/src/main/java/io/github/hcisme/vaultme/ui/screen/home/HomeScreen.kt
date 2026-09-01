@@ -40,7 +40,7 @@ fun HomeScreen(
     val navController = LocalNavController.current
     val focusManager = LocalFocusManager.current
     val viewModel = viewModel<HomeViewModel>()
-    val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.loadInitial()
@@ -93,7 +93,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                items(credentials) { credential ->
+                items(credentials, key = { it.uuid }) { credential ->
                     CredentialItem(
                         platform = credential.platform,
                         username = credential.account,

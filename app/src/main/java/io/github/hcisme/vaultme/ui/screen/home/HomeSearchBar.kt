@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +19,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 
@@ -29,7 +29,7 @@ fun HomeSearchBar(
 ) {
     val viewModel = viewModel<HomeViewModel>()
     val focusManager = LocalFocusManager.current
-    val query by viewModel.searchQuery.collectAsState()
+    val query by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     TextField(
         value = query,

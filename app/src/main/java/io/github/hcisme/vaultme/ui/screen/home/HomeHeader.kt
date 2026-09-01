@@ -1,5 +1,11 @@
 package io.github.hcisme.vaultme.ui.screen.home
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -14,12 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -39,18 +40,16 @@ fun HomeHeader(
 ) {
     val navController = LocalNavController.current
     val viewModel = viewModel<HomeViewModel>()
-    var rotation by remember { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(viewModel.isRefreshing) {
-        if (viewModel.isRefreshing) {
-            while (true) {
-                withFrameNanos { }
-                rotation = (rotation + 6f) % 360f
-            }
-        } else {
-            rotation = 0f
-        }
-    }
+    val rotationTransition = rememberInfiniteTransition(label = "refreshRotation")
+    val rotation by rotationTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "refreshRotation"
+    )
 
     TopAppBar(
         modifier = modifier,

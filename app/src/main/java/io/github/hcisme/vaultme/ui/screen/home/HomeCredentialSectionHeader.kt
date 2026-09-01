@@ -24,7 +24,7 @@ fun HomeCredentialSectionHeader(
     modifier: Modifier = Modifier
 ) {
     val viewModel = viewModel<HomeViewModel>()
-    val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val credentials by viewModel.credentialsFlow.collectAsStateWithLifecycle()
 
     Row(
         modifier = modifier.fillMaxWidth(),

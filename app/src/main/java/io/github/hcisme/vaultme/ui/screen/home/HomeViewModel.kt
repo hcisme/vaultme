@@ -13,11 +13,12 @@ import io.github.hcisme.vaultme.room.appDatabase
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,13 +31,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val credentialsFlow: Flow<List<CredentialEntity>> = _searchQuery.flatMapLatest { query ->
+    val credentialsFlow: StateFlow<List<CredentialEntity>> = _searchQuery.flatMapLatest { query ->
         if (query.isBlank()) {
             application.credentialDao.getAllCredentials()
         } else {
             application.credentialDao.searchCredentials(query)
         }
-    }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
