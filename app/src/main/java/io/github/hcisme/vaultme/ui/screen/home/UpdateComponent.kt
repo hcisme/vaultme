@@ -31,9 +31,29 @@ import io.github.hcisme.vaultme.utils.UpdateManager
 import io.github.hcisme.vaultme.utils.UpdateResult
 import kotlinx.coroutines.launch
 
-/**
- * 检查更新的动作按钮
- */
+
+@Composable
+fun AutoUpdateChecker() {
+    var showDialog by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateResult?>(null) }
+
+    LaunchedEffect(Unit) {
+        val result = UpdateManager.checkUpdate(isAutoCheck = true)
+        if (result is UpdateResult.HasUpdate) {
+            updateResult = result
+            showDialog = true
+        }
+    }
+
+    if (showDialog && updateResult is UpdateResult.HasUpdate) {
+        val res = updateResult as UpdateResult.HasUpdate
+        UpdateDialog(
+            initialState = UpdateState.HasUpdate(res.tagName, res.body, res.downloadUrl),
+            onDismiss = { showDialog = false }
+        )
+    }
+}
+
 @Composable
 fun UpdateButton(
     modifier: Modifier = Modifier
@@ -45,7 +65,7 @@ fun UpdateButton(
         modifier = modifier
     ) {
         Icon(
-            painter = painterResource(id = R.drawable.ic_refresh),
+            painter = painterResource(id = R.drawable.update),
             contentDescription = "检查更新",
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(26.dp)
@@ -59,30 +79,29 @@ fun UpdateButton(
     }
 }
 
-/**
- * 更新对话框
- */
 @Composable
 fun UpdateDialog(
+    initialState: UpdateState = UpdateState.Checking,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
+    var state by remember(initialState) { mutableStateOf(initialState) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
 
-    // 检查更新的逻辑
-    LaunchedEffect(Unit) {
-        val result = UpdateManager.checkUpdate()
-        state = when (result) {
-            is UpdateResult.HasUpdate -> UpdateState.HasUpdate(
-                tagName = result.tagName,
-                body = result.body,
-                downloadUrl = result.downloadUrl
-            )
+    LaunchedEffect(initialState) {
+        if (state is UpdateState.Checking) {
+            val result = UpdateManager.checkUpdate(isAutoCheck = false)
+            state = when (result) {
+                is UpdateResult.HasUpdate -> UpdateState.HasUpdate(
+                    tagName = result.tagName,
+                    body = result.body,
+                    downloadUrl = result.downloadUrl
+                )
 
-            is UpdateResult.UpToDate -> UpdateState.UpToDate
-            is UpdateResult.Error -> UpdateState.Error(result.message)
+                is UpdateResult.UpToDate -> UpdateState.UpToDate
+                is UpdateResult.Error -> UpdateState.Error(result.message)
+            }
         }
     }
 
@@ -148,7 +167,9 @@ fun UpdateDialog(
                             ) { progress ->
                                 downloadProgress = progress
                             }
-                            if (result.isFailure) {
+                            if (result.isSuccess) {
+                                onDismiss()
+                            } else {
                                 state =
                                     UpdateState.Error("下载失败: ${result.exceptionOrNull()?.message}")
                             }

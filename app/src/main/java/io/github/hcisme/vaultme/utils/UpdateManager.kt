@@ -2,7 +2,9 @@ package io.github.hcisme.vaultme.utils
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
 import io.github.hcisme.vaultme.BuildConfig
@@ -33,49 +35,60 @@ data class GitHubAsset(
 object UpdateManager {
     private const val TAG = "UpdateManager"
     private val json = Json { ignoreUnknownKeys = true }
+    private var hasAutoChecked = false
 
     /**
      * 检查更新
+     * @param isAutoCheck 是否为启动时的自动检查。如果是，则同一个生命周期内只检查一次。
      */
-    suspend fun checkUpdate(): UpdateResult = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder()
-                .url(Constant.GITHUB_API_URL)
-                .header("Accept", "application/vnd.github.v3+json")
-                .build()
-
-            NetworkClient.okHttpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return@withContext UpdateResult.Error("请求失败: HTTP ${response.code}")
-                }
-
-                val bodyString = response.body.string()
-                val release = json.decodeFromString<GitHubRelease>(bodyString)
-
-                val remoteVersionCode = release.tagName.lowercase()
-                    .removePrefix("v")
-                    .substringBefore(".")
-                    .toIntOrNull() ?: 0
-
-                if (remoteVersionCode > BuildConfig.VERSION_CODE) {
-                    val downloadUrl =
-                        release.assets.find { it.name == Constant.GITHUB_RELEASE_APK_NAME }?.browserDownloadUrl
-                            ?: release.assets.firstOrNull()?.browserDownloadUrl
-                            ?: ""
-
-                    UpdateResult.HasUpdate(
-                        tagName = release.tagName,
-                        body = release.body ?: "",
-                        downloadUrl = downloadUrl
-                    )
-                } else {
-                    UpdateResult.UpToDate
-                }
+    suspend fun checkUpdate(isAutoCheck: Boolean = false): UpdateResult =
+        withContext(Dispatchers.IO) {
+            if (isAutoCheck && hasAutoChecked) {
+                return@withContext UpdateResult.UpToDate
             }
-        } catch (e: Exception) {
-            UpdateResult.Error("网络错误: ${e.localizedMessage}")
+
+            try {
+                val request = Request.Builder()
+                    .url(Constant.GITHUB_API_URL)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .build()
+
+                NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext UpdateResult.Error("请求失败: HTTP ${response.code}")
+                    }
+
+                    val bodyString = response.body.string()
+                    val release = json.decodeFromString<GitHubRelease>(bodyString)
+
+                    val remoteVersionCode = release.tagName.lowercase()
+                        .removePrefix("v")
+                        .substringBefore(".")
+                        .toIntOrNull() ?: 0
+
+                    if (remoteVersionCode > BuildConfig.VERSION_CODE) {
+                        val downloadUrl =
+                            release.assets.find { it.name == Constant.GITHUB_RELEASE_APK_NAME }?.browserDownloadUrl
+                                ?: release.assets.firstOrNull()?.browserDownloadUrl
+                                ?: ""
+
+                        UpdateResult.HasUpdate(
+                            tagName = release.tagName,
+                            body = release.body ?: "",
+                            downloadUrl = downloadUrl
+                        )
+                    } else {
+                        UpdateResult.UpToDate
+                    }.also {
+                        if (isAutoCheck && it !is UpdateResult.Error) {
+                            hasAutoChecked = true
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                UpdateResult.Error("网络错误: ${e.localizedMessage}")
+            }
         }
-    }
 
     /**
      * 下载并安装 APK
@@ -95,7 +108,13 @@ object UpdateManager {
 
             val body = response.body
             val totalBytes = body.contentLength()
-            val apkFile = File(context.externalCacheDir, Constant.GITHUB_RELEASE_APK_NAME)
+            val apkFile = File(context.externalCacheDir, Constant.GITHUB_RELEASE_APK_NAME).apply {
+                parentFile?.mkdirs()
+            }
+
+            if (apkFile.exists()) {
+                apkFile.delete()
+            }
 
             body.byteStream().use { input ->
                 FileOutputStream(apkFile).use { output ->
@@ -110,6 +129,10 @@ object UpdateManager {
                         }
                     }
                 }
+            }
+
+            if (!isSameSigner(context, apkFile.absolutePath)) {
+                throw Exception("APK 签名校验失败，已拒绝安装")
             }
 
             installApk(context, apkFile)
@@ -132,6 +155,45 @@ object UpdateManager {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
+    }
+
+    private fun isSameSigner(context: Context, apkPath: String): Boolean {
+        val installed = installedSigners(context) ?: return false
+        val apk = apkSigners(context, apkPath) ?: return false
+        return installed.any { installedSig ->
+            apk.any { it.contentEquals(installedSig) }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installedSigners(context: Context): List<ByteArray>? {
+        val pm = context.packageManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                .signingInfo?.apkContentsSigners?.map { it.toByteArray() }
+        } else {
+            pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
+                .signatures?.map { it.toByteArray() }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun apkSigners(context: Context, apkPath: String): List<ByteArray>? {
+        val pm = context.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+        val info = pm.getPackageArchiveInfo(apkPath, flags) ?: return null
+        val appInfo = info.applicationInfo ?: return null
+        appInfo.sourceDir = apkPath
+        appInfo.publicSourceDir = apkPath
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners?.map { it.toByteArray() }
+        } else {
+            info.signatures?.map { it.toByteArray() }
+        }
     }
 }
 

@@ -46,6 +46,8 @@ fun HomeScreen(
         viewModel.loadInitial()
     }
 
+    AutoUpdateChecker()
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
