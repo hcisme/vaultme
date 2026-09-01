@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.hcisme.vaultme"
         minSdk = 24
         targetSdk = 37
-        versionCode = 2
-        versionName = "2"
+        versionCode = 3
+        versionName = "3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
