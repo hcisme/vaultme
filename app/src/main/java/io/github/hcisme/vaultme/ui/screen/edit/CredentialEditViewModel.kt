@@ -7,7 +7,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
-import io.github.hcisme.vaultme.datastore.SettingsDataStore
 import io.github.hcisme.vaultme.repository.WebDavRepository
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
@@ -20,14 +19,11 @@ import java.util.UUID
 class CredentialEditViewModel(application: Application) : AndroidViewModel(application) {
     var form by mutableStateOf(CredentialEditState())
         private set
-
-    private val webDavRepository = WebDavRepository(
-        settingsStore = SettingsDataStore(application)
-    )
+    private val webDavRepository = WebDavRepository.getInstance(application)
 
     fun loadCredential(id: Long?) {
         if (id == null) {
-            // 重置为添加模式
+
             form = CredentialEditState()
             return
         }
@@ -35,7 +31,7 @@ class CredentialEditViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             val entity = application.credentialDao.getCredentialById(id)
             if (entity != null) {
-                // 将解密操作也放到计算线程，因为这也是耗时操作
+
                 val decryptedPassword = withContext(Dispatchers.Default) {
                     try {
                         AesUtils.decrypt(entity.password)

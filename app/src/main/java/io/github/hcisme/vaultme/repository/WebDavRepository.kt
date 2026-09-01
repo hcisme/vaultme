@@ -1,13 +1,20 @@
 ﻿package io.github.hcisme.vaultme.repository
 
+import android.content.Context
 import android.util.Log
 import android.util.Xml
 import io.github.hcisme.vaultme.datastore.JianguoyunSettings
 import io.github.hcisme.vaultme.datastore.SettingsDataStore
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import io.github.hcisme.vaultme.utils.Constant
+import io.github.hcisme.vaultme.utils.NetworkClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -24,23 +31,29 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.Volatile
 
-/**
- * 坚果云 WebDAV 同步仓库：上传 / 下载 / 删除凭据。
- * 未配置坚果云时静默跳过，失败不抛异常（不影响本地操作）。
- */
-class WebDavRepository(
-    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
-        .build(),
-    private val settingsStore: SettingsDataStore
-) {
-    /**
-     * 上传一条凭据到坚果云。文件名用 uuid，避免多设备冲突。
-     */
+class WebDavRepository private constructor(private val settingsStore: SettingsDataStore) {
+    companion object {
+        private const val TAG = "WebDav"
+        private const val MAX_DOWNLOAD_CONCURRENCY = 4
+
+        private val CONFIRMED_DIRECTORIES: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+        @Volatile
+        private var instance: WebDavRepository? = null
+
+        fun getInstance(context: Context): WebDavRepository =
+            instance ?: synchronized(this) {
+                instance ?: WebDavRepository(SettingsDataStore.getInstance(context)).also {
+                    instance = it
+                }
+            }
+    }
+
+    private val okHttpClient: OkHttpClient = NetworkClient.okHttpClient
+
     suspend fun uploadCredential(entity: CredentialEntity) {
         if (entity.uuid.isBlank()) return
 
@@ -76,7 +89,7 @@ class WebDavRepository(
                     if (response.isSuccessful) {
                         Log.i(TAG, "上传成功 ${entity.uuid} -> HTTP ${response.code}")
                     } else {
-                        val body = response.body?.string().orEmpty()
+                        val body = response.body.string()
                         Log.w(TAG, "上传失败 ${entity.uuid} -> HTTP ${response.code}: $body")
                     }
                 }
@@ -86,10 +99,6 @@ class WebDavRepository(
         }
     }
 
-    /**
-     * 从坚果云拉取全部凭据（PROPFIND 列目录 + 逐个 GET）。
-     * 返回解析出的凭据列表，由调用方决定如何合并进本地库。
-     */
     suspend fun downloadCredentials(): List<CredentialEntity> {
         val config = settingsStore.jianguoyunSettings.first()
         if (!config.isConfigured) {
@@ -102,7 +111,6 @@ class WebDavRepository(
                 val base = config.webdavUrl.toHttpUrl()
                 val dirUrl = buildRemoteUrl(base, "")
 
-                // 1. PROPFIND 列出目录下的文件
                 val propfind = Request.Builder()
                     .url(dirUrl)
                     .method("PROPFIND", null)
@@ -134,33 +142,16 @@ class WebDavRepository(
                     }
                     .distinct()
 
-                // 2. 逐个下载并解析
-                val result = mutableListOf<CredentialEntity>()
-                for (uuid in uuids) {
-                    val fileUrl = buildRemoteUrl(base, "$uuid.json")
-
-                    val get = Request.Builder()
-                        .url(fileUrl)
-                        .get()
-                        .header(
-                            "Authorization",
-                            Credentials.basic(config.account, config.appPassword)
-                        )
-                        .build()
-
-                    okHttpClient.newCall(get).execute().use { response ->
-                        if (response.isSuccessful) {
-                            val entity = parseCredential(response.body.string())
-                            if (entity != null) {
-                                result.add(entity)
-                            } else {
-                                Log.w(TAG, "解析失败 $uuid")
+                val semaphore = Semaphore(MAX_DOWNLOAD_CONCURRENCY)
+                val result = coroutineScope {
+                    uuids.map { uuid ->
+                        async {
+                            semaphore.withPermit {
+                                downloadCredentialFile(base, config, uuid)
                             }
-                        } else {
-                            Log.w(TAG, "下载失败 $uuid -> HTTP ${response.code}")
                         }
-                    }
-                }
+                    }.awaitAll()
+                }.filterNotNull()
                 Log.i(TAG, "拉取完成: 远程 ${uuids.size} 个，成功解析 ${result.size} 个")
                 result
             } catch (e: Exception) {
@@ -170,9 +161,36 @@ class WebDavRepository(
         }
     }
 
-    /**
-     * 删除云端的一条凭据文件。
-     */
+    private fun downloadCredentialFile(
+        base: HttpUrl,
+        config: JianguoyunSettings,
+        uuid: String
+    ): CredentialEntity? {
+        val fileUrl = buildRemoteUrl(base, "$uuid.json")
+        val get = Request.Builder()
+            .url(fileUrl)
+            .get()
+            .header("Authorization", Credentials.basic(config.account, config.appPassword))
+            .build()
+        return try {
+            okHttpClient.newCall(get).execute().use { response ->
+                if (response.isSuccessful) {
+                    val entity = parseCredential(response.body.string())
+                    if (entity == null) {
+                        Log.w(TAG, "解析失败 $uuid")
+                    }
+                    entity
+                } else {
+                    Log.w(TAG, "下载失败 $uuid -> HTTP ${response.code}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "下载异常 $uuid", e)
+            null
+        }
+    }
+
     suspend fun deleteCredential(uuid: String) {
         if (uuid.isBlank()) return
 
@@ -209,9 +227,6 @@ class WebDavRepository(
         }
     }
 
-    /**
-     * 基于 WebDAV 根地址拼接远程文件/目录 URL（自动带上同步目录路径）。
-     */
     private fun buildRemoteUrl(base: HttpUrl, vararg segments: String): HttpUrl {
         return base.newBuilder().apply {
             for (segment in Constant.SYNC_REMOTE_PATH.split('/')) {
@@ -223,11 +238,12 @@ class WebDavRepository(
         }.build()
     }
 
-    /**
-     * 逐级创建远程目录（MKCOL）。目录已存在时返回 405，同样视为成功。
-     */
     private fun ensureRemoteDirectory(base: HttpUrl, config: JianguoyunSettings) {
+
+        if (CONFIRMED_DIRECTORIES.contains(base.toString())) return
+
         val builder = base.newBuilder()
+        var allReady = true
         for (segment in Constant.SYNC_REMOTE_PATH.split('/')) {
             if (segment.isBlank()) continue
             builder.addPathSegment(segment)
@@ -243,17 +259,20 @@ class WebDavRepository(
                         Log.d(TAG, "目录就绪 $dirUrl -> HTTP ${response.code}")
                     } else {
                         Log.w(TAG, "创建目录 $dirUrl -> HTTP ${response.code}")
+                        allReady = false
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "MKCOL 异常 $dirUrl", e)
+                allReady = false
             }
+        }
+
+        if (allReady) {
+            CONFIRMED_DIRECTORIES.add(base.toString())
         }
     }
 
-    /**
-     * 从 PROPFIND 的 XML 响应里解析出所有 <href> 文本。
-     */
     private fun parseHrefs(xml: String): List<String> {
         val hrefs = mutableListOf<String>()
         try {
@@ -275,9 +294,6 @@ class WebDavRepository(
         return hrefs
     }
 
-    /**
-     * 把远程 JSON 解析回凭据实体（password 是本地已加密的密文，直接存）。
-     */
     private fun parseCredential(body: String): CredentialEntity? {
         return try {
             val json = Json.parseToJsonElement(body).jsonObject
@@ -293,9 +309,5 @@ class WebDavRepository(
             Log.e(TAG, "解析远程凭据失败", e)
             null
         }
-    }
-
-    private companion object {
-        const val TAG = "WebDav"
     }
 }

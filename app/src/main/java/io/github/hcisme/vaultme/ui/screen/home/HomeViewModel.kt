@@ -7,8 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
-import io.github.hcisme.vaultme.datastore.SettingsDataStore
+import androidx.room.withTransaction
 import io.github.hcisme.vaultme.repository.WebDavRepository
+import io.github.hcisme.vaultme.room.appDatabase
 import io.github.hcisme.vaultme.room.credentialDao
 import io.github.hcisme.vaultme.room.entity.CredentialEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,11 +23,9 @@ import kotlinx.coroutines.launch
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     var isRefreshing by mutableStateOf(false)
         private set
-    private val webDavRepository = WebDavRepository(
-        settingsStore = SettingsDataStore(application)
-    )
+    private var hasLoadedOnce = false
+    private val webDavRepository = WebDavRepository.getInstance(application)
 
-    // 搜索词
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 

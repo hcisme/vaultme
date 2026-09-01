@@ -55,12 +55,9 @@ fun SettingsScreen(
     val navController = LocalNavController.current
     val viewModel = viewModel<SettingsViewModel>()
     val form = viewModel.form
-
-    // 应用级 DataStore，remember 保证进入页面只创建一次（由页面持有）
-    val settingsStore = remember { SettingsDataStore(context.applicationContext) }
+    val settingsStore = remember { SettingsDataStore.getInstance(context.applicationContext) }
     val jianguoyunSettings = settingsStore.jianguoyunSettings
 
-    // 收集 DataStore 里的配置：首次打开为空，之后回显已保存的值
     LaunchedEffect(Unit) {
         jianguoyunSettings.collect { settings ->
             viewModel.onSettingsLoaded(settings)
@@ -124,7 +121,7 @@ fun SettingsScreen(
                         CircularProgressIndicator(modifier = Modifier.size(32.dp))
                     }
                 } else {
-                    // 账号
+
                     TextField(
                         value = form.account,
                         onValueChange = { viewModel.onFormChange(account = it) },
@@ -140,7 +137,7 @@ fun SettingsScreen(
                         )
                     )
 
-                    // 应用密码
+
                     TextField(
                         value = form.appPassword,
                         onValueChange = { viewModel.onFormChange(appPassword = it) },
