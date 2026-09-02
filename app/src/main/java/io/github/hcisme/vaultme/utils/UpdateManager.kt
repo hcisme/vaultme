@@ -1,16 +1,16 @@
 package io.github.hcisme.vaultme.utils
 
-import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import io.github.hcisme.vaultme.BuildConfig
-import io.github.hcisme.vaultme.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -19,7 +19,6 @@ import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import androidx.core.net.toUri
 
 @Serializable
 data class GitHubRelease(
@@ -112,12 +111,13 @@ object UpdateManager {
 
             val body = response.body
             val totalBytes = body.contentLength()
-            val apkFile = File(context.externalCacheDir, Constant.GITHUB_RELEASE_APK_NAME).apply {
+            val apkFile = File(
+                context.externalCacheDir,
+                "vaultme_update_${System.currentTimeMillis()}.apk"
+            ).apply {
                 parentFile?.mkdirs()
-            }
-
-            if (apkFile.exists()) {
-                apkFile.delete()
+                context.externalCacheDir?.listFiles { f -> f.name.startsWith("vaultme_update_") }
+                    ?.forEach { it.delete() }
             }
 
             body.byteStream().use { input ->
@@ -167,42 +167,23 @@ object UpdateManager {
     }
 
     private fun installApk(context: Context, file: File) {
-        val packageInstaller = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(
-            PackageInstaller.SessionParams.MODE_FULL_INSTALL
-        ).apply {
-            setAppPackageName(context.packageName)
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        val session = try {
-            packageInstaller.openSession(packageInstaller.createSession(params))
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            throw IllegalStateException("当前系统没有可用的 APK 安装程序", e)
         } catch (e: SecurityException) {
-            throw IllegalStateException("缺少安装权限，请先在系统设置中允许“安装未知应用”", e)
-        }
-        session.use { session ->
-            val output = session.openWrite("vaultme_update", 0, file.length())
-            output.use { output ->
-                file.inputStream().use { input ->
-                    val buffer = ByteArray(8 * 1024)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                    }
-                }
-                session.fsync(output)
-            }
-
-            // 安装完成后自动回到 App
-            val launchIntent = context.packageManager
-                .getLaunchIntentForPackage(context.packageName)
-                ?: Intent(context, MainActivity::class.java)
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                0,
-                launchIntent,
-                // "the commit status receiver should come from a mutable pending intent"
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            session.commit(pendingIntent.intentSender)
+            throw IllegalStateException("安装被系统拦截，请先允许“安装未知应用”后重试", e)
         }
     }
 
