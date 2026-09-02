@@ -15,8 +15,14 @@ android {
         applicationId = "io.github.hcisme.vaultme"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "7"
+
+        val verYear = 2026
+        val verMajor = 1
+        val verMinor = 1
+
+        versionCode = verYear * 10000 + verMajor * 100 + verMinor
+        versionName = "$verYear.$verMajor.$verMinor"
+
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

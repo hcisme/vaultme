@@ -64,10 +64,7 @@ object UpdateManager {
                     val bodyString = response.body.string()
                     val release = json.decodeFromString<GitHubRelease>(bodyString)
 
-                    val remoteVersionCode = release.tagName.lowercase()
-                        .removePrefix("v")
-                        .substringBefore(".")
-                        .toIntOrNull() ?: 0
+                    val remoteVersionCode = parseVersionToCode(release.tagName)
 
                     if (remoteVersionCode > BuildConfig.VERSION_CODE) {
                         val downloadUrl =
@@ -223,6 +220,26 @@ object UpdateManager {
             info.signingInfo?.apkContentsSigners?.map { it.toByteArray() }
         } else {
             info.signatures?.map { it.toByteArray() }
+        }
+    }
+
+    private fun parseVersionToCode(tagName: String): Int {
+        return try {
+            val versionStr = tagName.lowercase().removePrefix("v")
+            val parts = versionStr.split(".")
+            if (parts.size >= 3) {
+                // 新版格式：YYYY.Major.Minor -> YYYYMMDD
+                val year = parts[0].toInt()
+                val major = parts[1].toInt()
+                val minor = parts[2].toInt()
+                year * 10000 + major * 100 + minor
+            } else {
+                // 兼容旧版格式：v7 -> 7
+                parts[0].toInt()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "解析版本号失败: $tagName", e)
+            0
         }
     }
 }
