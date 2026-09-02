@@ -159,20 +159,28 @@ fun UpdateDialog(
             when (val current = state) {
                 is UpdateState.HasUpdate -> {
                     Button(onClick = {
-                        state = UpdateState.Downloading
-                        scope.launch {
-                            val result = UpdateManager.downloadAndInstall(
-                                context,
-                                current.downloadUrl
-                            ) { progress ->
-                                downloadProgress = progress
+                        if (UpdateManager.isInstallPermissionGranted(context)) {
+                            state = UpdateState.Downloading
+                            scope.launch {
+                                val result = UpdateManager.downloadAndInstall(
+                                    context,
+                                    current.downloadUrl
+                                ) { progress ->
+                                    downloadProgress = progress
+                                }
+                                if (result.isSuccess) {
+                                    onDismiss()
+                                } else {
+                                    state =
+                                        UpdateState.Error("下载安装失败: ${result.exceptionOrNull()?.message}")
+                                }
                             }
-                            if (result.isSuccess) {
-                                onDismiss()
-                            } else {
-                                state =
-                                    UpdateState.Error("下载失败: ${result.exceptionOrNull()?.message}")
-                            }
+                        } else {
+                            // 未授予“安装未知应用”：先引导去系统设置，并说明原因（Android 8+ 必须）
+                            state = UpdateState.Error(
+                                "需要先在系统设置中允许 VaultMe “安装未知应用”，授权后请重新点击更新"
+                            )
+                            UpdateManager.openInstallPermissionSettings(context)
                         }
                     }) {
                         Text("立即更新")

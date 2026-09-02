@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import io.github.hcisme.vaultme.BuildConfig
 import io.github.hcisme.vaultme.MainActivity
@@ -17,6 +19,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import androidx.core.net.toUri
 
 @Serializable
 data class GitHubRelease(
@@ -144,6 +147,25 @@ object UpdateManager {
         }
     }
 
+    /**
+     * 是否已具备“安装未知应用”的 per-app 授权。
+     * Android 8+ 下，App 无论走 ACTION_VIEW 还是 PackageInstaller 发起安装都需要它；
+     * 未授权时系统会直接拦下安装（部分 ROM 会表现为“已安装更高版本/原地不生效”等怪现象）。
+     */
+    fun isInstallPermissionGranted(context: Context): Boolean =
+        context.packageManager.canRequestPackageInstalls()
+
+    /**
+     * 跳转到本应用“安装未知应用”的系统设置页（Android 8+ 可用）。
+     */
+    fun openInstallPermissionSettings(context: Context) {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            "package:${context.packageName}".toUri()
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
     private fun installApk(context: Context, file: File) {
         val packageInstaller = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(
@@ -177,7 +199,8 @@ object UpdateManager {
                 context,
                 0,
                 launchIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                // "the commit status receiver should come from a mutable pending intent"
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
             session.commit(pendingIntent.intentSender)
         }
