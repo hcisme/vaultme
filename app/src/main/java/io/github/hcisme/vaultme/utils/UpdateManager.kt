@@ -1,5 +1,6 @@
 package io.github.hcisme.vaultme.utils
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -154,7 +155,13 @@ object UpdateManager {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            throw IllegalStateException("当前系统没有可用的 APK 安装程序", e)
+        } catch (e: SecurityException) {
+            throw IllegalStateException("安装被系统拦截，请先允许“安装未知应用”后重试", e)
+        }
     }
 
     private fun isSameSigner(context: Context, apkPath: String): Boolean {
