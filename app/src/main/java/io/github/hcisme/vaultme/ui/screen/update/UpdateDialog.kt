@@ -1,15 +1,17 @@
-package io.github.hcisme.vaultme.ui.screen.home
+package io.github.hcisme.vaultme.ui.screen.update
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,81 +24,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import io.github.hcisme.vaultme.R
+import io.github.hcisme.vaultme.datastore.UpdateDataStore
 import io.github.hcisme.vaultme.utils.UpdateManager
 import io.github.hcisme.vaultme.utils.UpdateResult
 import kotlinx.coroutines.launch
 
-
-@Composable
-fun AutoUpdateChecker() {
-    var showDialog by remember { mutableStateOf(false) }
-    var updateResult by remember { mutableStateOf<UpdateResult?>(null) }
-
-    LaunchedEffect(Unit) {
-        val result = UpdateManager.checkUpdate(isAutoCheck = true)
-        if (result is UpdateResult.HasUpdate) {
-            updateResult = result
-            showDialog = true
-        }
-    }
-
-    if (showDialog && updateResult is UpdateResult.HasUpdate) {
-        val res = updateResult as UpdateResult.HasUpdate
-        UpdateDialog(
-            initialState = UpdateState.HasUpdate(res.tagName, res.body, res.downloadUrl),
-            onDismiss = { showDialog = false }
-        )
-    }
-}
-
-@Composable
-fun UpdateButton(
-    modifier: Modifier = Modifier
-) {
-    var showDialog by remember { mutableStateOf(false) }
-
-    IconButton(
-        onClick = { showDialog = true },
-        modifier = modifier
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.update),
-            contentDescription = "检查更新",
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(26.dp)
-        )
-    }
-
-    if (showDialog) {
-        UpdateDialog(
-            onDismiss = { showDialog = false }
-        )
-    }
-}
-
+/**
+ * 更新流程对话框：负责 检查 -> 下载 -> 安装
+ */
 @Composable
 fun UpdateDialog(
     initialState: UpdateState = UpdateState.Checking,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onNeedPermission: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val updateDataStore = remember { UpdateDataStore.getInstance(context) }
     var state by remember(initialState) { mutableStateOf(initialState) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var dontShowAgain by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialState) {
         if (state is UpdateState.Checking) {
             val result = UpdateManager.checkUpdate(isAutoCheck = false)
             state = when (result) {
                 is UpdateResult.HasUpdate -> UpdateState.HasUpdate(
-                    tagName = result.tagName,
-                    body = result.body,
-                    downloadUrl = result.downloadUrl
+                    result.tagName, result.body, result.downloadUrl
                 )
 
                 is UpdateResult.UpToDate -> UpdateState.UpToDate
@@ -130,10 +88,25 @@ fun UpdateDialog(
                     is UpdateState.HasUpdate -> {
                         Text("新版本 ${current.tagName}")
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "更新内容：\n${current.body}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        if (current.body.isNotBlank()) {
+                            Text(current.body, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { dontShowAgain = !dontShowAgain }
+                        ) {
+                            Checkbox(
+                                checked = dontShowAgain,
+                                onCheckedChange = { dontShowAgain = it }
+                            )
+                            Text(
+                                text = "不再提醒",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
                     }
 
                     is UpdateState.Downloading -> {
@@ -145,13 +118,8 @@ fun UpdateDialog(
                         Text("下载进度: ${(downloadProgress * 100).toInt()}%")
                     }
 
-                    is UpdateState.UpToDate -> {
-                        Text("当前已是最新版本，无需更新。")
-                    }
-
-                    is UpdateState.Error -> {
-                        Text(current.message)
-                    }
+                    is UpdateState.UpToDate -> Text("当前已是最新版本，无需更新。")
+                    is UpdateState.Error -> Text(current.message)
                 }
             }
         },
@@ -163,24 +131,14 @@ fun UpdateDialog(
                             state = UpdateState.Downloading
                             scope.launch {
                                 val result = UpdateManager.downloadAndInstall(
-                                    context,
-                                    current.downloadUrl
-                                ) { progress ->
-                                    downloadProgress = progress
-                                }
-                                if (result.isSuccess) {
-                                    onDismiss()
-                                } else {
-                                    state =
-                                        UpdateState.Error("下载安装失败: ${result.exceptionOrNull()?.message}")
-                                }
+                                    context, current.downloadUrl
+                                ) { downloadProgress = it }
+                                if (result.isSuccess) onDismiss()
+                                else state =
+                                    UpdateState.Error("安装失败: ${result.exceptionOrNull()?.message}")
                             }
                         } else {
-                            // 未授予“安装未知应用”：先引导去系统设置，并说明原因（Android 8+ 必须）
-                            state = UpdateState.Error(
-                                "需要先在系统设置中允许 VaultMe “安装未知应用”，授权后请重新点击更新"
-                            )
-                            UpdateManager.openInstallPermissionSettings(context)
+                            onNeedPermission()
                         }
                     }) {
                         Text("立即更新")
@@ -188,34 +146,18 @@ fun UpdateDialog(
                 }
 
                 is UpdateState.Downloading -> {}
-                is UpdateState.Checking -> {}
-
                 else -> {
-                    TextButton(onClick = onDismiss) {
-                        Text("确定")
-                    }
+                    TextButton(onClick = onDismiss) { Text("确定") }
                 }
             }
         },
         dismissButton = {
             if (state !is UpdateState.Downloading && (state is UpdateState.HasUpdate || state is UpdateState.Checking)) {
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
-                }
+                TextButton(onClick = {
+                    scope.launch { updateDataStore.setIgnoreUpdateDialog(dontShowAgain) }
+                    onDismiss()
+                }) { Text("取消") }
             }
         }
     )
-}
-
-sealed interface UpdateState {
-    data object Checking : UpdateState
-    data class HasUpdate(
-        val tagName: String,
-        val body: String,
-        val downloadUrl: String
-    ) : UpdateState
-
-    data object Downloading : UpdateState
-    data object UpToDate : UpdateState
-    data class Error(val message: String) : UpdateState
 }

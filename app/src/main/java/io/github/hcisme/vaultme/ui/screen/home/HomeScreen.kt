@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 import io.github.hcisme.vaultme.components.CredentialItem
 import io.github.hcisme.vaultme.navigation.navigateToEditCredential
+import io.github.hcisme.vaultme.ui.screen.update.AutoUpdateChecker
 import io.github.hcisme.vaultme.utils.ColorUtils
 import io.github.hcisme.vaultme.utils.LocalNavController
 

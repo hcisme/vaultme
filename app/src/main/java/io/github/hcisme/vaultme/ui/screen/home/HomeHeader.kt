@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 import io.github.hcisme.vaultme.navigation.navigateToSettings
+import io.github.hcisme.vaultme.ui.screen.update.UpdateButton
 import io.github.hcisme.vaultme.utils.LocalNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
