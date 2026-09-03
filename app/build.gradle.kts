@@ -18,7 +18,7 @@ android {
 
         val verYear = 2026
         val verMajor = 1
-        val verMinor = 1
+        val verMinor = 2
 
         versionCode = verYear * 10000 + verMajor * 100 + verMinor
         versionName = "$verYear.$verMajor.$verMinor"

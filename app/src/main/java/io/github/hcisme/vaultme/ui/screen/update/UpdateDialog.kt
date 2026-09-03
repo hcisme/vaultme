@@ -17,54 +17,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import io.github.hcisme.vaultme.datastore.UpdateDataStore
-import io.github.hcisme.vaultme.utils.UpdateManager
-import io.github.hcisme.vaultme.utils.UpdateResult
-import kotlinx.coroutines.launch
+
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
- * 更新流程对话框：负责 检查 -> 下载 -> 安装
+ * 更新流程对话框：仅负责展示
  */
 @Composable
-fun UpdateDialog(
-    initialState: UpdateState = UpdateState.Checking,
-    onDismiss: () -> Unit,
-    onNeedPermission: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val updateDataStore = remember { UpdateDataStore.getInstance(context) }
-    var state by remember(initialState) { mutableStateOf(initialState) }
-    var downloadProgress by remember { mutableFloatStateOf(0f) }
+fun UpdateDialog() {
+    val viewModel = viewModel<UpdateViewModel>()
+    val state = viewModel.updateState
+    val downloadProgress = viewModel.downloadProgress
     var dontShowAgain by remember { mutableStateOf(false) }
 
-    LaunchedEffect(initialState) {
-        if (state is UpdateState.Checking) {
-            val result = UpdateManager.checkUpdate(isAutoCheck = false)
-            state = when (result) {
-                is UpdateResult.HasUpdate -> UpdateState.HasUpdate(
-                    result.tagName, result.body, result.downloadUrl
-                )
-
-                is UpdateResult.UpToDate -> UpdateState.UpToDate
-                is UpdateResult.Error -> UpdateState.Error(result.message)
-            }
-        }
-    }
-
     AlertDialog(
-        onDismissRequest = if (state is UpdateState.Downloading) ({}) else onDismiss,
+        onDismissRequest = if (state is UpdateState.Downloading) ({}) else viewModel::dismissDialog,
         title = {
             Text(
                 text = when (state) {
@@ -73,12 +47,13 @@ fun UpdateDialog(
                     is UpdateState.Downloading -> "正在下载"
                     is UpdateState.UpToDate -> "已经是最新"
                     is UpdateState.Error -> "检查失败"
+                    else -> ""
                 }
             )
         },
         text = {
             Column {
-                when (val current = state) {
+                when (state) {
                     is UpdateState.Checking -> {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.height(8.dp))
@@ -86,10 +61,10 @@ fun UpdateDialog(
                     }
 
                     is UpdateState.HasUpdate -> {
-                        Text("新版本 ${current.tagName}")
+                        Text("新版本 ${state.tagName}")
                         Spacer(modifier = Modifier.height(4.dp))
-                        if (current.body.isNotBlank()) {
-                            Text(current.body, style = MaterialTheme.typography.bodySmall)
+                        if (state.body.isNotBlank()) {
+                            Text(state.body, style = MaterialTheme.typography.bodySmall)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -104,7 +79,7 @@ fun UpdateDialog(
                             Text(
                                 text = "不再提醒",
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(start = 4.dp)
+                                modifier = Modifier.padding(start = 2.dp)
                             )
                         }
                     }
@@ -119,43 +94,29 @@ fun UpdateDialog(
                     }
 
                     is UpdateState.UpToDate -> Text("当前已是最新版本，无需更新。")
-                    is UpdateState.Error -> Text(current.message)
+                    is UpdateState.Error -> Text(state.message)
+                    else -> {}
                 }
             }
         },
         confirmButton = {
-            when (val current = state) {
+            when (state) {
                 is UpdateState.HasUpdate -> {
-                    Button(onClick = {
-                        if (UpdateManager.isInstallPermissionGranted(context)) {
-                            state = UpdateState.Downloading
-                            scope.launch {
-                                val result = UpdateManager.downloadAndInstall(
-                                    context, current.downloadUrl
-                                ) { downloadProgress = it }
-                                if (result.isSuccess) onDismiss()
-                                else state =
-                                    UpdateState.Error("安装失败: ${result.exceptionOrNull()?.message}")
-                            }
-                        } else {
-                            onNeedPermission()
-                        }
-                    }) {
+                    Button(onClick = { viewModel.startDownload(state.downloadUrl) }) {
                         Text("立即更新")
                     }
                 }
 
                 is UpdateState.Downloading -> {}
                 else -> {
-                    TextButton(onClick = onDismiss) { Text("确定") }
+                    TextButton(onClick = { viewModel.dismissDialog() }) { Text("确定") }
                 }
             }
         },
         dismissButton = {
             if (state !is UpdateState.Downloading && (state is UpdateState.HasUpdate || state is UpdateState.Checking)) {
                 TextButton(onClick = {
-                    scope.launch { updateDataStore.setIgnoreUpdateDialog(dontShowAgain) }
-                    onDismiss()
+                    viewModel.ignoreUpdate(dontShowAgain)
                 }) { Text("取消") }
             }
         }

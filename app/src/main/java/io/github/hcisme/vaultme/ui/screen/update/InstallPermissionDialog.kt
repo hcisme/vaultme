@@ -17,45 +17,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.components.EnhancedLifecycleAware
-import io.github.hcisme.vaultme.datastore.UpdateDataStore
 import io.github.hcisme.vaultme.utils.UpdateManager
-import kotlinx.coroutines.launch
 
 /**
  * 权限引导对话框：仅负责权限
  */
 @Composable
-fun InstallPermissionDialog(
-    onDismiss: () -> Unit,
-    onPermissionGranted: () -> Unit
-) {
+fun InstallPermissionDialog() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val updateDataStore = remember { UpdateDataStore.getInstance(context) }
+    val viewModel = viewModel<UpdateViewModel>()
     var dontShowAgain by remember { mutableStateOf(false) }
 
     EnhancedLifecycleAware(
         onResumed = {
             if (UpdateManager.isInstallPermissionGranted(context)) {
-                onPermissionGranted()
+                viewModel.onPermissionGranted()
             }
         }
     )
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { viewModel.ignorePermission(dontShowAgain) },
         title = { Text("需要安装权限") },
         text = {
             Column {
-                Text("需要您手动授予“安装未知应用”权限才能进行更新。授权后请返回应用。")
-                Spacer(modifier = Modifier.height(16.dp))
+                Text("需要您手动授予“安装未知应用”权限才能进行更新 授权后请返回应用")
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -75,22 +69,16 @@ fun InstallPermissionDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (dontShowAgain) {
-                    scope.launch { updateDataStore.setIgnorePermissionDialog(true) }
-                }
-                UpdateManager.openInstallPermissionSettings(context)
-            }) {
+            Button(
+                onClick = { viewModel.openPermissionSettings() }
+            ) {
                 Text("去授权")
             }
         },
         dismissButton = {
-            TextButton(onClick = {
-                if (dontShowAgain) {
-                    scope.launch { updateDataStore.setIgnorePermissionDialog(true) }
-                }
-                onDismiss()
-            }) {
+            TextButton(
+                onClick = { viewModel.ignorePermission(dontShowAgain) }
+            ) {
                 Text("取消")
             }
         }

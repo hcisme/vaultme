@@ -5,26 +5,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.hcisme.vaultme.R
 
 @Composable
-fun UpdateButton(modifier: Modifier = Modifier) {
-    var showUpdateDialog by remember { mutableStateOf(false) }
-    var showPermissionDialog by remember { mutableStateOf(false) }
+fun UpdateButton(
+    modifier: Modifier = Modifier
+) {
+    val viewModel = viewModel<UpdateViewModel>()
+    val dialogType = viewModel.dialogType
 
-    fun switchDialog(update: Boolean = false, permission: Boolean = false) {
-        showUpdateDialog = update
-        showPermissionDialog = permission
-    }
-
-    IconButton(onClick = { switchDialog(update = true) }, modifier = modifier) {
+    IconButton(
+        onClick = { viewModel.checkUpdate(isAutoCheck = false) },
+        modifier = modifier
+    ) {
         Icon(
             painter = painterResource(id = R.drawable.update),
             contentDescription = "检查更新",
@@ -33,17 +30,15 @@ fun UpdateButton(modifier: Modifier = Modifier) {
         )
     }
 
-    if (showUpdateDialog) {
-        UpdateDialog(
-            onDismiss = { switchDialog() },
-            onNeedPermission = { switchDialog(permission = true) }
-        )
-    }
+    when (dialogType) {
+        UpdateDialogType.Update -> {
+            UpdateDialog()
+        }
 
-    if (showPermissionDialog) {
-        InstallPermissionDialog(
-            onDismiss = { switchDialog() },
-            onPermissionGranted = { switchDialog(update = true) }
-        )
+        UpdateDialogType.Permission -> {
+            InstallPermissionDialog()
+        }
+
+        UpdateDialogType.None -> null
     }
 }
